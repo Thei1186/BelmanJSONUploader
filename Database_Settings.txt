@@ -1,0 +1,4 @@
+Server = 10.176.111.31
+Database = BelmanBAMT
+User = CS2018A_4
+Password = CS2018A_4
