@@ -5,6 +5,7 @@
  */
 package belmanjsonuploader;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -35,6 +36,8 @@ public class BelmanJSONUploader
 
     /**
      * @param args the command line arguments
+     * @throws java.io.FileNotFoundException
+     * @throws java.sql.SQLException
      */
     public static void main(String[] args) throws FileNotFoundException, SQLException, IOException
     {
@@ -42,7 +45,7 @@ public class BelmanJSONUploader
 
         try
         {
-            jsonupload.uploadJSON();
+            jsonupload.checkJSONFolder(new File("JSON"));
         } catch (IOException ex)
         {
             ex.printStackTrace();
@@ -52,13 +55,15 @@ public class BelmanJSONUploader
         }
     }
 
-    public void uploadJSON() throws FileNotFoundException, IOException, ParseException, SQLException
+    public void uploadJSON(String path) throws FileNotFoundException, IOException, ParseException, SQLException
     {
-        Object obj = new JSONParser().parse(new FileReader("JSON/data.json"));
+        Object obj = new JSONParser().parse(new FileReader(path));
         
-        int id = 0;
         JSONObject jObject = (JSONObject) obj;
 
+            try (Connection con = ds.getConnection())
+            {
+        int id = 0;
         JSONArray jArray = (JSONArray) jObject.get("ProductionOrders");
         for (Object object : jArray) //Iterates over an array of production orders
         {
@@ -74,15 +79,12 @@ public class BelmanJSONUploader
             String deliveryDateString = (String) deliveryObject.get("DeliveryTime");
             Date deliveryDate = formatDateString(deliveryDateString);
 
-            try (Connection con = ds.getConnection())
-            {
                 if (!checkIfOrderExists(con, orderNumber))
                 {
                 id = uploadPOrderToDatabase(orderNumber, customerName, deliveryDate, con);
                 }
-                
-            }
-
+            
+            
             JSONArray dTaskArray = (JSONArray) oObject.get("DepartmentTasks");
             for (Object object1 : dTaskArray) //Iterates over an array of departmentTasks within each production order
             {
@@ -99,19 +101,20 @@ public class BelmanJSONUploader
 
                 boolean finishedTask = (boolean) dTaskObject.get("FinishedOrder");
 
-                try (Connection con = ds.getConnection())
-                {
-                    if (checkIfTaskExists(con, orderNumber, id))
+//                try (Connection con = ds.getConnection())
+//                {
+                    if (id > 0 && !checkIfTaskExists(con, departmentName, id))
                     {
                     uploadDTaskToDatabase(departmentName, startDate, endDate, finishedTask, 0, con, id);
                     }
 
-                } catch (Exception e)
+//                } catch (Exception e)
                 {
                 }
 
             }
 
+        }
         }
     }
 
@@ -160,13 +163,12 @@ public class BelmanJSONUploader
         return newDate;
     }
     
-    public boolean checkIfTaskExists(Connection con, String orderNumber, int id) throws SQLException
+    public boolean checkIfTaskExists(Connection con, String departmentName, int id) throws SQLException
     {
         boolean existingTask = false;
         PreparedStatement pstmt1 = con.prepareStatement("SELECT ProdId, DepartmentName FROM DepartmentTask "
-                + "INNER JOIN ProductionOrder ON ProductionOrder.Id = DepartmentTask.ProdId "
                 + "WHERE DepartmentName = (?) AND ProdId = (?)");
-        pstmt1.setString(1, orderNumber);
+        pstmt1.setString(1, departmentName);
         pstmt1.setInt(2, id);
         
         ResultSet rs = pstmt1.executeQuery();
@@ -190,5 +192,14 @@ public class BelmanJSONUploader
             existingOrder = true;
         }
         return existingOrder;
+    }
+    
+    public void checkJSONFolder(File folder) throws IOException, FileNotFoundException, ParseException, SQLException
+    {
+        for (File listFile : folder.listFiles())
+        {
+            String path = listFile.getPath();
+            uploadJSON(path);
+        }
     }
 }
