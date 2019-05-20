@@ -56,13 +56,13 @@ public class BelmanJSONUploader
             try
             {
                 jsonupload.checkJSONFolder(new File("JSON"));
-            } catch (IOException | ParseException | SQLException ex)
+            } catch (Exception ex)
             {
                 Logger.getLogger(BelmanJSONUploader.class.getName()).log(Level.SEVERE, null, ex);
             }
         };
         
-        executor.scheduleWithFixedDelay(task, 0, 30, TimeUnit.SECONDS);
+        executor.scheduleWithFixedDelay(task, 0, 10, TimeUnit.SECONDS);
     }
     
     public void uploadJSON(String path) throws FileNotFoundException, IOException, ParseException, SQLException
@@ -203,6 +203,7 @@ public class BelmanJSONUploader
         {
             String path = listFile.getPath();
             uploadJSON(path);
+            System.out.println(path);
         }
     }
 }
