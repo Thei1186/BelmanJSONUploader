@@ -46,6 +46,8 @@ public class BelmanJSONUploader
     }
 
     /**
+     * This method holds a thread that runs endlessly, repeatedly checking for new Files
+     * Anything other than a JSON file will result in an exception
      * @param args the command line arguments
      * @throws java.io.FileNotFoundException
      * @throws java.sql.SQLException
@@ -59,7 +61,7 @@ public class BelmanJSONUploader
         {
             try
             {
-                jsonupload.checkJSONFolder(new File("JSON"));
+                jsonupload.checkJSONFolder(new File("JSON")); //Path of the folder containing the JSON files
             } catch (Exception ex)
             {
                 Logger.getLogger(BelmanJSONUploader.class.getName()).log(Level.SEVERE, null, ex);
@@ -68,7 +70,15 @@ public class BelmanJSONUploader
 
         executor.scheduleWithFixedDelay(task, 0, 5, TimeUnit.SECONDS);
     }
-
+    
+    /**
+     * Reads a JSON file with the name supplied to the method through the String path parameter 
+     * @param path
+     * @throws FileNotFoundException
+     * @throws IOException
+     * @throws ParseException
+     * @throws SQLException 
+     */
     public void uploadJSON(String path) throws FileNotFoundException, IOException, ParseException, SQLException
     {
         Object obj = new JSONParser().parse(new FileReader(path));
@@ -124,7 +134,15 @@ public class BelmanJSONUploader
             }
         }
     }
-
+    /**
+     * Sends the information regarding production orders read from the JSON file to the database 
+     * @param orderNumber
+     * @param customerName
+     * @param deliveryDate
+     * @param con
+     * @return
+     * @throws SQLException 
+     */
     public int uploadPOrderToDatabase(String orderNumber, String customerName, Date deliveryDate, Connection con) throws SQLException
     {
         PreparedStatement pstmt = con.prepareStatement("INSERT INTO ProductionOrder VALUES (?,?,?)", Statement.RETURN_GENERATED_KEYS);
@@ -144,7 +162,17 @@ public class BelmanJSONUploader
         }
         return id;
     }
-
+    /**
+     * Sends the information regarding department tasks within a production order to the database 
+     * @param departmentName
+     * @param startDate
+     * @param endDate
+     * @param finishedTask
+     * @param timeOffset
+     * @param con
+     * @param id
+     * @throws SQLException 
+     */
     public void uploadDTaskToDatabase(String departmentName, Date startDate, Date endDate, boolean finishedTask, int timeOffset, Connection con, int id) throws SQLException
     {
 
@@ -162,14 +190,27 @@ public class BelmanJSONUploader
 
         pstmt1.execute();
     }
-
+    /**
+     * This is a helper method that parses the date to a format that can be read
+     * It is hardcoded and might have to change, if the format of the date string within the JSON gets altered.
+     * @param dateString
+     * @return 
+     */
     private Date formatDateString(String dateString)
     {
         Long milli = Long.parseLong(dateString.substring(6, dateString.indexOf("+")));
         Date newDate = new Date(milli);
         return newDate;
     }
-
+    
+    /**
+     * This helper method checks if the inserted department task already exist inside the database
+     * @param con
+     * @param departmentName
+     * @param id
+     * @return
+     * @throws SQLException 
+     */
     public boolean checkIfTaskExists(Connection con, String departmentName, int id) throws SQLException
     {
         boolean existingTask = false;
@@ -185,7 +226,14 @@ public class BelmanJSONUploader
         }
         return existingTask;
     }
-
+    /**
+     * This helper method checks if the production order already exists within the database
+     * Returns false if there is no record of the production order's order number
+     * @param con
+     * @param orderNumber
+     * @return
+     * @throws SQLException 
+     */
     public boolean checkIfOrderExists(Connection con, String orderNumber) throws SQLException
     {
         boolean existingOrder = false;
@@ -200,7 +248,16 @@ public class BelmanJSONUploader
         }
         return existingOrder;
     }
-
+    
+    /**
+     * Checks whether there are any files within the file passed to the method
+     * Passed file should be a folder containing JSON files
+     * @param folder
+     * @throws IOException
+     * @throws FileNotFoundException
+     * @throws ParseException
+     * @throws SQLException 
+     */
     public void checkJSONFolder(File folder) throws IOException, FileNotFoundException, ParseException, SQLException
     {
         for (File listFile : folder.listFiles())
@@ -216,7 +273,15 @@ public class BelmanJSONUploader
                
         }
     }
-
+    
+    /**
+     * Checks whether a JSON file has already been loaded.
+     * This is used to prevent having to read the same files several times.
+     * However, this will have to run once each time the program restarts
+     * as the state is not saved outside runtime.
+     * @param filePath
+     * @return 
+     */
     public boolean checkIfJSONAlreadyLoaded(String filePath)
     {
         for (String jsonPath : oldJSONList)
